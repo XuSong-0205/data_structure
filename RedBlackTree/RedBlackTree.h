@@ -3,6 +3,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <functional>
 #include <exception>
 #include <stack>
 #include <queue>
@@ -11,6 +12,7 @@ using std::endl;
 using std::setw;
 using std::stack;
 using std::queue;
+using std::function;
 
 
 // 类模板前置声明
@@ -39,10 +41,12 @@ private:
 		RBNode* left;
 		RBNode* right;
 
-		RBNode(const T& k, RBNode* l, RBNode* r, RBNode* p, RBColor c)
+		RBNode(const T& k, RBColor c = RED, RBNode* l = nullptr, 
+			RBNode* r = nullptr, RBNode* p = nullptr)
 			:key(k), left(l), right(r), parent(p), color(c) {}
 
-		RBNode(T&& k, RBNode* l, RBNode* r, RBNode* p, RBColor c)
+		RBNode(T&& k, RBColor c = RED, RBNode* l = nullptr,
+			RBNode* r = nullptr, RBNode* p = nullptr)
 			:key(std::move(k)), left(l), right(r), parent(p), color(c) {}
 
 		void setParent(RBNode* par)
@@ -66,37 +70,28 @@ private:
 		}
 	};
 
-	RBNode* _root;
+	RBNode* _root = nullptr;
+	size_t  _size = 0;
+
+	friend class const_iterator;
+	friend class iterator;
 
 private:
-	void print(RBNode* node, const T& value, int direction)const
+	void printColorKey(const RBNode* node)const
 	{
-		if (node)
-		{
-			if (direction == 0) 
-			{
-				cout << setw(2) << node->key << " (B) is root " << endl;
-			}
-			else 
-			{
-				cout << setw(2) << node->key << (node->getColor() == RED ? "(R)" : "(B)") << " is "
-					<< setw(2) << value << " 's " << setw(12)
-					<< (direction == 1 ? " right child " : " left child ") << endl;
-			}
-			print(node->left, node->key, -1);
-			print(node->right, node->key, 1);
-		}
+		cout << "\033[" << (node->getColor() == BLACK ? "30m" : "31m")
+			<< node->key << "\033[0m ";
 	}
 
 	// 非递归前序遍历
-	void preOrder(RBNode* node)const
+	void preOrder(const RBNode* node, const function<void(const RBNode*)>& func)const
 	{
-		stack<RBNode*> sta;
+		stack<const RBNode*> sta;
 		while (node || !sta.empty())
 		{
 			while (node)
 			{
-				cout << node->key << " ";
+				func(node);
 
 				sta.push(node);
 				node = node->left;
@@ -106,12 +101,13 @@ private:
 			sta.pop();
 			node = node->right;
 		}
+		cout << endl;
 	}
 
 	// 非递归中序遍历
-	void inOrder(RBNode* node)const
+	void inOrder(const RBNode* node, const function<void(const RBNode*)>& func)const
 	{
-		stack<RBNode*> sta;
+		stack<const RBNode*> sta;
 		while (node || !sta.empty())
 		{
 			while (node)
@@ -122,17 +118,18 @@ private:
 			node = sta.top();
 			sta.pop();
 
-			cout << node->key << " ";
+			func(node);
 
 			node = node->right;
 		}
+		cout << endl;
 	}
 
 	// 非递归后序遍历
-	void postOrder(RBNode* node)const
+	void postOrder(const RBNode* node, const function<void(const RBNode*)>& func)const
 	{
-		RBNode* prev = nullptr;
-		stack<RBNode*> sta;
+		const RBNode* prev = nullptr;
+		stack<const RBNode*> sta;
 		while (node || !sta.empty())
 		{
 			while (node)
@@ -146,7 +143,7 @@ private:
 			{
 				sta.pop();
 
-				cout << node->key << " ";
+				func(node);
 
 				prev = node;
 				node = nullptr;
@@ -156,14 +153,15 @@ private:
 				node = node->right;
 			}
 		}
+		cout << endl;
 	}
 
 	// 层序遍历
-	void levelOrder(RBNode* node)const
+	void levelOrder(const RBNode* node, const function<void(const RBNode*)>& func)const
 	{
 		if (!node) return;
 
-		queue<RBNode*> que;
+		queue<const RBNode*> que;
 		que.push(node);
 		while (!que.empty())
 		{
@@ -173,7 +171,7 @@ private:
 				node = que.front();
 				que.pop();
 
-				cout << node->key << " ";
+				func(node);
 
 				if (node->left) que.push(node->left);
 				if (node->right) que.push(node->right);
@@ -182,11 +180,11 @@ private:
 		}
 	}
 
-	RBNode* clone(RBNode* node)
+	RBNode* clone(const RBNode* node)
 	{
 		if (node)
 		{
-			RBNode* curr = new RBNode(node->key, clone(node->left), clone(node->right), nullptr, node->color);
+			RBNode* curr = new RBNode(node->key, node->getColor(), clone(node->left), clone(node->right), nullptr);
 			if (curr->left)  curr->left->setParent(curr);
 			if (curr->right) curr->right->setParent(curr);
 			return curr;
@@ -196,9 +194,6 @@ private:
 		{
 			return nullptr;
 		}
-
-		/*if (node) return new RBNode(node->key, clone(node->left), clone(right), nullptr, color);
-		else return nullptr;*/
 	}
 
 	void makeEmpty(RBNode*& node)
@@ -245,7 +240,7 @@ private:
 		return node;
 	}
 
-	void leftRotate(RBNode*& tree, RBNode* x)
+	void leftRotate(RBNode* x)
 	{
 		RBNode* y = x->right;
 		x->right = y->left;
@@ -277,14 +272,14 @@ private:
 		x->setParent(y);
 	}
 
-	void rightRotate(RBNode*& tree, RBNode* y)
+	void rightRotate(RBNode* y)
 	{
 		RBNode* x = y->left;
 		y->left = x->right;
 
 		if (x->right != nullptr) 
 		{
-			x->right->setParent(x);
+			x->right->setParent(y);
 		}
 
 		x->setParent(y->getParent());
@@ -309,336 +304,243 @@ private:
 		y->setParent(x);
 	}
 
-	void insert(RBNode*& tree, RBNode* node)
+	void insert(const T& key, bool isMove) 
 	{
-		RBNode* temp1 = nullptr;
-		RBNode* temp2 = tree;
-
-		while (temp2 != nullptr) 
+		RBNode* prev = nullptr;
+		RBNode* curr = _root;
+		while (curr)
 		{
-			temp1 = temp2;
-			if (node->key < temp2->key) 
-			{
-				temp2 = temp2->left;
-			}
-			else 
-			{
-				temp2 = temp2->right;
-			}
+			prev = curr;
+			if (key == curr->key) return;
+			else if (key < curr->key) curr = curr->left;
+			else if (key > curr->key) curr = curr->right;
 		}
 
-		node->setParent(temp1);
+		auto node = isMove ? new RBNode(std::move(key)) : new RBNode(key);
+		if (!node) return;
+		node->setParent(prev);
+		++_size;
 
-		if (temp1 != nullptr) 
+		if (prev)
 		{
-			if (node->key < temp1->key) 
-			{
-				temp1->left = node;
-			}
-			else 
-			{
-				temp1->right = node;
-			}
+			if (node->key < prev->key)	prev->left  = node;
+			else						prev->right = node;
 		}
-		else 
+		else
 		{
+			node->setColor(BLACK);
 			_root = node;
-		}
-
-		node->setColor(RED);
-
-		insertFixUp(tree, node);
-	}
-
-	void insertFixUp(RBNode*& tree, RBNode* node)
-	{
-		RBNode* p = nullptr;
-		RBNode* g = nullptr;
-		while ((p = node->getParent()) && (p->getColor() == RED)) 
-		{
-			g = p->getParent();
-			if (p == g->left) {
-				//case 1 : uncle is RED
-				{
-					RBNode* uncle = g->right;
-					if ((uncle != nullptr) && (uncle->getColor() == RED)) 
-					{
-						g->setColor(RED);
-						p->setColor(BLACK);
-						uncle->setColor(BLACK);
-
-						node = g;
-						continue;
-					}
-				}
-
-				//case 2 : uncle is right child(BLACK)
-				if (p->right == node) 
-				{
-					RBNode* temp = nullptr;
-					leftRotate(tree, p);
-
-					temp = p;
-					p = node;
-					node = temp;
-				}
-
-				//case 3 : uncle is left child(BLACK)
-				g->setColor(RED);
-				p->setColor(BLACK);
-				rightRotate(tree, g);
-
-			}
-			else 
-			{
-				//case 1 : uncle is RED
-				{
-					RBNode* uncle = g->left;
-					if (uncle && (uncle->getColor() == RED)) 
-					{
-						g->setColor(RED);
-						p->setColor(BLACK);
-						uncle->setColor(BLACK);
-
-						node = g;
-						continue;
-					}
-				}
-				//case 2 : uncle is left child(BLACK)
-				if (p->left == node) {
-					RBNode* temp = nullptr;
-					rightRotate(tree, p);
-
-					temp = p;
-					p = node;
-					node = temp;
-				}
-
-				//case 3 : uncle is right child(BLACK)
-				g->setColor(RED);
-				p->setColor(BLACK);
-				leftRotate(tree, g);
-			}
-		}
-
-		//set root as black color
-		_root->setColor(BLACK);
-	}
-
-	void erase(RBNode*& tree, RBNode* node)
-	{
-		RBNode* chd = nullptr;
-		RBNode* pat = nullptr;
-		RBColor clr = RED;
-
-		//case 1 : the node has left and right child
-		if ((node->left != nullptr) && (node->right != nullptr)) 
-		{
-			//use successor to "replace" the node
-			RBNode* rep = node;
-			rep = rep->right;
-			while (rep->left != nullptr) 
-			{
-				rep = rep->left;
-			}
-
-			if (node->getParent() != nullptr)
-			{
-				RBNode* temp = node->getParent();
-				if (node == temp->left) 
-				{
-					temp->left = rep;
-				}
-				else 
-				{
-					temp->right = rep;
-				}
-			}
-			else 
-			{
-				_root = node;
-			}
-
-			chd = rep->right;
-			pat = rep->getParent();
-			clr = rep->getColor();
-
-			if (pat == node) 
-			{
-				pat = rep;
-			}
-			else 
-			{
-				if (chd != nullptr) 
-				{
-					chd->setParent(pat);
-				}
-
-				rep->right = node->right;
-				node->right->setParent(rep);
-			}
-
-			rep->setParent(node->getParent());
-			rep->setColor(node->getColor());
-			rep->left = node->left;
-			node->left->setParent(rep);
-
-			if (clr == BLACK) 
-			{
-				eraseFixUp(tree, chd, pat);
-			}
-
-			delete node;
 			return;
 		}
 
-		//case 2 : node has only one child
-		if (node->left != nullptr) 
+		while (node->getParent() && node->getParent()->getColor() == RED && node->getParent() != _root)
 		{
-			chd = node->left;
-		}
-		else 
-		{
-			chd = node->right;
-		}
-
-		pat = node->getParent();
-		clr = node->getColor();
-
-		if (chd != nullptr) 
-		{
-			chd->setParent(pat);
-		}
-
-		if (pat != nullptr) 
-		{
-			if (node == pat->left) 
+			auto par = node->getParent();
+			auto gpa = par->getParent();
+			bool parIsRight = gpa->right == par ? true : false;
+			auto uncle = parIsRight ? gpa->left : gpa->right;
+			if (uncle && uncle->getColor() == RED)
 			{
-				pat->left = chd;
+				par->setColor(BLACK); 
+				uncle->setColor(BLACK);
+				gpa->setColor(RED);
+				node = gpa;
+				continue;
 			}
-			else 
+			else
 			{
-				pat->right = chd;
+				parIsRight  && node == par->left  ? rightRotate(par) : void();
+				!parIsRight && node == par->right ? leftRotate(par)  : void();
+				parIsRight ? par = gpa->right : par = gpa->left;
+				parIsRight ? leftRotate(gpa) : rightRotate(gpa);
+				gpa->setColor(RED);
+				par->setColor(BLACK);
+				return;
 			}
 		}
-		else 
-		{
-			_root = chd;
-		}
-		if (clr == BLACK) 
-		{
-			eraseFixUp(tree, chd, pat);
-		}
 
-		//case 3 : nod is leaf node
-		delete node;
+		_root->setColor(BLACK);
 	}
 
-	void eraseFixUp(RBNode*& tree, RBNode* node, RBNode* p)
+	void erase(RBNode* node)
 	{
-		RBNode* temp = nullptr;
-		while (((node == nullptr || (node->getColor() == BLACK))) && (node != tree))
+		if (node->getColor() == RED)
 		{
-			if (p->left == node) 
+			if (!node->left && !node->right)
 			{
-				temp = p->right;
-
-				//case 1 : brother node is RED
-				if (temp->getColor() == RED) 
-				{
-					p->setColor(RED);
-					temp->setColor(BLACK);
-
-					leftRotate(tree, p);
-					temp = p->right;
-				}
-
-				//case 2 : brother node is BLACK
-				//case 2.1 both two children are BLACK
-				if (((temp->left == nullptr)  || (temp->left->getColor() == BLACK)) &&
-					((temp->right == nullptr) || (temp->right->getColor() == BLACK)))
-				{
-					temp->setColor(RED);
-					node = p;
-					p = node->getParent();
-				}
-				else 
-				{
-					//case 2.2 left child is RED, right child is BLACK
-					if ((temp->right == nullptr) || (temp->right->getColor() == BLACK))
-					{
-						temp->left->setColor(BLACK);
-						temp->setColor(RED);
-
-						rightRotate(tree, temp);
-						temp = p->right;
-					}
-
-					//case 2.3 right child is RED
-					temp->setColor(p->getColor());
-					p->setColor(BLACK);
-					temp->right->setColor(BLACK);
-
-					leftRotate(tree, p);
-					node = tree;
-					break;
-				}
+				auto par = node->getParent();
+				par->left == node ? par->left = nullptr : par->right = nullptr;
+				delete node;
+				return;
 			}
-			else 
+			else
 			{
-				temp = p->left;
-
-				//case 1 : brother node is RED
-				if (temp->getColor() == RED) 
-				{
-					p->setColor(RED);
-					temp->setColor(BLACK);
-					
-					rightRotate(tree, p);
-					temp = p->left;
-				}
-
-				//case 2 : brother node is BLACK
-				//case 2.1 both two children are BLACK
-				if (((temp->left  == nullptr) || (temp->left->getColor() == BLACK)) &&
-					((temp->right == nullptr) || (temp->right->getColor() == BLACK)))
-				{
-					temp->setColor(RED);
-					node = p;
-					p = node->getParent();
-				}
-				else 
-				{
-					//case 2.2 left child is RED, right child is BLACK
-					if ((temp->left == nullptr) || (temp->left->getColor() == BLACK))
-					{
-						temp->right->setColor(BLACK);
-						temp->setColor(RED);
-
-						leftRotate(tree, temp);
-						temp = p->left;
-					}
-
-					//case 2.3 right child is RED
-					temp->setColor(p->getColor());
-					p->setColor(BLACK);
-					temp->left->setColor(BLACK);
-					
-					rightRotate(tree, p);
-					node = tree;
-					break;
-				}
+				auto del = min(node->right);
+				node->key = std::move(del->key);
+				erase(del);
+				return;
 			}
 		}
-
-		if (node != nullptr) 
+		else
 		{
-			node->setColor(BLACK);
+			if (node->left && node->right)
+			{
+				auto del = min(node->right);
+				node->key = std::move(del->key);
+				erase(del);
+				return;
+			}
+			else if (node->left || node->right)
+			{
+				auto del = node->left ? node->left : node->right;
+				node->left ? node->left = nullptr : node->right = nullptr;
+				node->key = std::move(del->key);
+				delete del;
+				return;
+			}
+			else
+			{
+				auto par = node->getParent();
+				if (!par)
+				{
+					delete _root;
+					_root = nullptr;
+					return;
+				}
+
+				bool isLeft = par->left == node ? true : false;
+				isLeft ? par->left = nullptr : par->right = nullptr;
+				delete node;
+
+				while (true)
+				{
+					auto bro = isLeft ? par->right : par->left;
+					if (bro->getColor() == RED)
+					{
+						isLeft ? leftRotate(par) : rightRotate(par);
+						par->setColor(RED);
+						bro->setColor(BLACK);
+						if (!bro->getParent()) _root = bro;
+						isLeft ? bro = par->right : bro = par->left;
+					}
+					
+					if (bro->getColor() == BLACK)
+					{
+						if ((isLeft ? bro->left : bro->right) && (isLeft ? bro->left : bro->right)->getColor() == RED)
+						{
+							auto temp = isLeft ? bro->left : bro->right;
+							isLeft ? rightRotate(bro) : leftRotate(bro);
+							isLeft ? leftRotate(par)  : rightRotate(par);
+							temp->setColor(par->getColor());
+							par->setColor(BLACK);
+							return;
+						}
+						else if ((isLeft ? bro->right : bro->left) && (isLeft ? bro->right : bro->left)->getColor() == RED)
+						{
+							auto temp = isLeft ? bro->right : bro->left;
+							isLeft ? leftRotate(par) : rightRotate(par);
+							bro->setColor(par->getColor());
+							par->setColor(BLACK);
+							temp->setColor(BLACK);
+							return;
+						}
+						else if (par->getColor() == RED)
+						{
+							par->setColor(BLACK);
+							bro->setColor(RED);
+							return;
+						}
+						else
+						{
+							bro->setColor(RED);
+							if (par->getParent()) isLeft = par->getParent()->left == par ? true : false;
+							else return;
+							par = par->getParent();
+							continue;
+						}
+					}
+				}
+			}
 		}
 	}
 
 public:
-	RedBlackTree() :_root(nullptr) {}
+	class const_iterator
+	{
+	public:
+		const_iterator() = default;
+
+		const T& operator*()const
+		{
+			return current->key;
+		}
+
+		const_iterator& operator++()
+		{
+			return getNext();
+		}
+
+		const_iterator operator++(int)
+		{
+			auto old = *this;
+			++(*this);
+			return old;
+		}
+
+		bool operator==(const const_iterator& iter)const
+		{
+			return current == iter.current;
+		}
+
+		bool operator!=(const const_iterator& iter)const
+		{
+			return !(*this == iter);
+		}
+
+
+	protected:
+		const RBNode* current = nullptr;
+
+		explicit const_iterator(const RBNode* node) :current(node) {}
+
+		const_iterator& getNext()
+		{
+			const RBNode* next = current->right;
+			if (next)
+			{
+				while (next->left) next = next->left;
+			}
+
+			if (next) current = next;
+			else
+			{
+				auto par = current->getParent();
+				while (par && par->key < current->key)
+				{
+					par = par->getParent();
+				}
+				current = par;
+			}
+			return *this;
+		}
+
+		friend class RedBlackTree;
+	};
+
+	class iterator : public const_iterator 
+	{
+	public:
+		iterator() = default;
+
+	protected:
+		explicit iterator(const RBNode* node) : const_iterator(node) {}
+
+		friend class RedBlackTree;
+	};
+
+
+public:
+	RedBlackTree() = default;
 
 	~RedBlackTree()
 	{
@@ -650,7 +552,11 @@ public:
 		_root = clone(tree._root);
 	}
 
-	RedBlackTree(RedBlackTree&& tree) = default;
+	RedBlackTree(RedBlackTree&& tree)noexcept : _root(tree._root), _size(tree._size)
+	{
+		tree._root = nullptr;
+		tree._size = 0;
+	}
 
 	RedBlackTree& operator=(const RedBlackTree& tree)
 	{
@@ -664,32 +570,63 @@ public:
 		return *this;
 	}
 
-	RedBlackTree& operator=(RedBlackTree&& tree) = default;
+	RedBlackTree& operator=(RedBlackTree&& tree)noexcept
+	{
+		if (this != &tree)
+		{
+			_root = tree._root;
+			_size = tree._size;
+			tree._root = nullptr;
+			tree._size = 0;
+		}
+
+		return *this;
+	}
+
+	iterator begin()
+	{
+		return iterator(min(_root));
+	}
+
+	iterator end()
+	{
+		return iterator();
+	}
+
+	const_iterator begin()const
+	{
+		return const_iterator(min(_root));
+	}
+
+	const_iterator end()const
+	{
+		return const_iterator();
+	}
 
 	void print()const
 	{
 		if (empty()) cout << "Empty tree!" << endl;
-		else print(_root, _root->key, 0);
+		else inOrder();
 	}
 
 	void preOrder()const
 	{
-		preOrder(_root);
+		preOrder(_root, [this](const RBNode* node) {printColorKey(node); });
 	}
 
 	void inOrder()const
 	{
-		inOrder(_root);
+		inOrder(_root, [this](const RBNode* node) {printColorKey(node); });
 	}
 
 	void postOrder()const
 	{
-		postOrder(_root);
+		postOrder(_root, [this](const RBNode* node) {printColorKey(node); });
 	}
 
 	void levelOrder()const
 	{
-		levelOrder(_root);
+		levelOrder(_root, [this](const RBNode* node) {printColorKey(node); });
 	}
 
 	void makeEmpty()
@@ -702,9 +639,14 @@ public:
 		return search(_root, key) != nullptr;
 	}
 
-	bool empty()const
+	bool empty()const noexcept
 	{
 		return _root == nullptr;
+	}
+
+	size_t size()const noexcept
+	{
+		return _size;
 	}
 
 	const T& min()const
@@ -723,26 +665,28 @@ public:
 
 	void insert(const T& key)
 	{
-		if (contains(key)) return;
-
-		insert(_root, new RBNode(key, nullptr, nullptr, nullptr, RED));
-
-		++_size;
+		insert(key, false);
 	}
 
 	void insert(T&& key)
 	{
-		if (contains(key)) return;
-
-		insert(_root, new RBNode(std::move(key), nullptr, nullptr, nullptr, RED));
-		++_size;
+		insert(key, true);
 	}
 
 	void erase(const T& key)
 	{
 		if (RBNode* node = search(_root, key))
 		{
-			erase(_root, node);
+			erase(node);
+			--_size;
+		}
+	}
+
+	void erase(const_iterator iter)
+	{
+		if (iter != end())
+		{
+			erase(const_cast<RBNode*>(iter.current));
 			--_size;
 		}
 	}
@@ -750,15 +694,9 @@ public:
 
 	/*************测试方法*************/
 	// 测试其是否是二叉搜索树
-	bool isBST()const
+	bool isRBBST()const
 	{
-		T  key = -0x0AAAAAAA;
-		return isBST(_root, key);
-	}
-
-	size_t size()const
-	{
-		return _size;
+		return isRBBST(_root);
 	}
 
 	int height()const
@@ -767,29 +705,122 @@ public:
 	}
 
 private:
-	bool isBST(RBNode* node, T& key)const
+	// 测试其是否是二叉搜索树
+	bool isRBBST(const RBNode* node)const
 	{
-		if (node)
+		// 检查根节点是否是黑色
+		if (_root && _root->getColor() != BLACK)
 		{
-			isBST(node->left, key);
-
-			if (key != -0x0AAAAAAA && key > node->key) return false;
-			key = node->key;
-
-			isBST(node->right, key);
+			cout << "Root Error : Root not's BLACK!" << endl;
+			return false;
 		}
+
+		// 非递归中序遍历判断是否是二叉搜索树
+		{
+			stack<T> nums;
+			stack<RBNode*> sta;
+			auto node = _root;
+			while (node || !sta.empty())
+			{
+				while (node)
+				{
+					sta.push(node);
+					node = node->left;
+				}
+
+				node = sta.top();
+				sta.pop();
+				if (!nums.empty() && node->key <= nums.top())
+				{
+					cout << "BST Error : prev(" << nums.top()
+						<< ") node(" << node->key << ")" << endl;
+					return false;
+				}
+
+				nums.push(node->key);
+
+				node = node->right;
+			}
+		}
+
+		cout << "BST性质检查完毕" << endl;
+
+
+		// 前序遍历检查父节点指针
+		{
+			preOrder(_root, [=](const RBNode* node)
+				{
+					if (!node) return;
+
+					if (node->left)
+					{
+						if (node->left->getParent() != node)
+						{
+							cout << "\033[031mError Par(" << node->key << ") : " << node
+								<< " left(" << node->left->key << ") : " << node->left
+								<< " left's par(" << (node->getParent() ? node->getParent()->key : -1)
+								<< ") : " << node->left->getParent()
+								<< "\033[0m" << endl;
+							levelOrder();
+						}
+					}
+
+					if (node->right)
+					{
+						if (node->right->getParent() != node)
+						{
+							cout << "\033[031mError Par(" << node->key << ") : " << node
+								<< " left(" << node->right->key << ") : " << node->right
+								<< " left's par(" << (node->getParent() ? node->getParent()->key : -1)
+								<< ") : " << node->right->getParent()
+								<< "\033[0m" << endl;
+							levelOrder();
+						}
+					}
+				});
+		}
+
+		cout << "父指针检查完毕" << endl;
+
+		// 检查性质，红色节点只有0或2个黑色子节点
+		{
+			preOrder(_root, [](const RBNode* node)
+				{
+					if (!node) return;
+
+					if (node->getColor() == RED)
+					{
+						// 仅有左子节点
+						if (node->left && !node->right)
+						{
+							cout << "\033[31mError Color : node(RED) "
+								<< " node->left(" << (node->left->getColor() == BLACK ? "BLACK" : "RED")
+								<< ")\033[0m" << endl;
+						}
+
+						// 仅有有子节点
+						if (!node->left && node->right)
+						{
+							cout << "\033[31mError Color : node(RED) "
+								<< " node->right(" << (node->right->getColor() == BLACK ? "BLACK" : "RED")
+								<< ")\033[0m" << endl;
+						}
+					}
+				});
+		}
+
+		cout << "红色节点仅有0或2个黑色节点性质检查完毕" << endl;
+		cout << "size : " << size() << endl;
 
 		return true;
 	}
 
-	int height(RBNode* node)const
+	int height(const RBNode* node)const
 	{
 		if (!node) return -1;
 
 		return std::max(height(node->left), height(node->right)) + 1;
 	}
-
-	size_t _size = 0;
 
 };
 
