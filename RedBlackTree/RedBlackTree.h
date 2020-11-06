@@ -530,10 +530,7 @@ public:
 	class iterator : public const_iterator 
 	{
 	public:
-		iterator() = default;
-
-	protected:
-		explicit iterator(const RBNode* node) : const_iterator(node) {}
+		using const_iterator::const_iterator;
 
 		friend class RedBlackTree;
 	};
